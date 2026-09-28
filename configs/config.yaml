@@ -1,0 +1,37 @@
+# 应用默认配置。敏感项（数据库密码、Redis 密码）请写入 configs/config.local.yaml 覆盖，
+# 该文件已在 .gitignore 中忽略，不会提交。
+
+app:
+  name: kotoba
+  env: development # development | production
+  addr: ":8080"
+  read_timeout: 15 # 秒
+  write_timeout: 15 # 秒
+  shutdown_timeout: 10 # 秒
+  cors:
+    allow_origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+
+log:
+  level: debug # debug | info | warn | error
+  format: console # console | json
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  username: root
+  password: ""
+  database: kotoba
+  charset: utf8mb4
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 3600 # 秒
+  log_level: info # silent | error | warn | info
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 50
