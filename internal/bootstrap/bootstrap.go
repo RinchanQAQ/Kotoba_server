@@ -17,8 +17,11 @@ type App struct {
 }
 
 // New 加载配置并依次初始化日志、数据库、缓存。
-func New(configPath string) (*App, error) {
-	cfg, err := LoadConfig(configPath)
+//
+// 依赖按「配置 → 日志 → 数据库 → 缓存」的顺序构建：
+// 日志最先可用，后续每一步的失败原因都能被结构化记录下来。
+func New(opts LoadOptions) (*App, error) {
+	cfg, err := LoadConfig(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -28,6 +31,13 @@ func New(configPath string) (*App, error) {
 		return nil, err
 	}
 
+	// 记录配置来源，排查「到底加载了哪份配置」时非常有用。
+	logger.Info("配置加载完成",
+		zap.String("env", cfg.Env),
+		zap.String("addr", cfg.App.Addr),
+		zap.Strings("config_sources", cfg.Sources),
+	)
+
 	db, err := NewMySQL(cfg.MySQL, logger)
 	if err != nil {
 		return nil, err
@@ -35,14 +45,11 @@ func New(configPath string) (*App, error) {
 
 	rdb, err := NewRedis(cfg.Redis, logger)
 	if err != nil {
-		_ = closeMySQL(db)
+		_ = CloseMySQL(db)
 		return nil, err
 	}
 
-	logger.Info("应用依赖初始化完成",
-		zap.String("env", cfg.App.Env),
-		zap.String("addr", cfg.App.Addr),
-	)
+	logger.Info("应用依赖初始化完成", zap.String("env", cfg.App.Env))
 
 	return &App{Config: cfg, Logger: logger, MySQL: db, Redis: rdb}, nil
 }
@@ -51,7 +58,7 @@ func New(configPath string) (*App, error) {
 func (a *App) Close() error {
 	var firstErr error
 
-	if err := closeMySQL(a.MySQL); err != nil {
+	if err := CloseMySQL(a.MySQL); err != nil {
 		firstErr = err
 	}
 
@@ -68,7 +75,9 @@ func (a *App) Close() error {
 	return firstErr
 }
 
-func closeMySQL(db *gorm.DB) error {
+// CloseMySQL 关闭 gorm 底层的连接池。
+// 同时被 App.Close 与 cmd/migrate 复用（迁移进程不需要 Redis）。
+func CloseMySQL(db *gorm.DB) error {
 	if db == nil {
 		return nil
 	}

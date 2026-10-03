@@ -8,12 +8,13 @@ import (
 
 // 业务错误码分段：1xxxx 通用，2xxxx 鉴权，3xxxx 词库，4xxxx 学习，5xxxx 服务端。
 const (
-	CodeOK              = 0
-	CodeInvalidParams   = 10001
-	CodeNotFound        = 10002
-	CodeConflict        = 10003
-	CodeTooManyRequests = 10004
-	CodeInternal        = 10005
+	CodeOK               = 0
+	CodeInvalidParams    = 10001
+	CodeNotFound         = 10002
+	CodeConflict         = 10003
+	CodeTooManyRequests  = 10004
+	CodeInternal         = 10005
+	CodeMethodNotAllowed = 10006
 
 	CodeUnauthorized = 20001
 	CodeForbidden    = 20002
@@ -71,11 +72,12 @@ func From(err error) *Error {
 
 // 预定义的通用业务错误。
 var (
-	ErrInvalidParams   = New(http.StatusBadRequest, CodeInvalidParams, "请求参数不合法")
-	ErrNotFound        = New(http.StatusNotFound, CodeNotFound, "资源不存在")
-	ErrConflict        = New(http.StatusConflict, CodeConflict, "资源已存在或状态冲突")
-	ErrTooManyRequests = New(http.StatusTooManyRequests, CodeTooManyRequests, "请求过于频繁")
-	ErrInternal        = New(http.StatusInternalServerError, CodeInternal, "服务器内部错误")
-	ErrUnauthorized    = New(http.StatusUnauthorized, CodeUnauthorized, "未登录或登录状态已失效")
-	ErrForbidden       = New(http.StatusForbidden, CodeForbidden, "没有操作权限")
+	ErrInvalidParams    = New(http.StatusBadRequest, CodeInvalidParams, "请求参数不合法")
+	ErrNotFound         = New(http.StatusNotFound, CodeNotFound, "资源不存在")
+	ErrConflict         = New(http.StatusConflict, CodeConflict, "资源已存在或状态冲突")
+	ErrTooManyRequests  = New(http.StatusTooManyRequests, CodeTooManyRequests, "请求过于频繁")
+	ErrInternal         = New(http.StatusInternalServerError, CodeInternal, "服务器内部错误")
+	ErrMethodNotAllowed = New(http.StatusMethodNotAllowed, CodeMethodNotAllowed, "请求方法不被支持")
+	ErrUnauthorized     = New(http.StatusUnauthorized, CodeUnauthorized, "未登录或登录状态已失效")
+	ErrForbidden        = New(http.StatusForbidden, CodeForbidden, "没有操作权限")
 )

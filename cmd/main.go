@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,8 +32,10 @@ func main() {
 }
 
 func run() error {
-	configPath := flag.String("config", "", "配置文件路径，默认 configs/config.yaml")
+	configPath := flag.String("config", "", "配置文件路径，默认 configs/config.yaml（可用 KOTOBA_CONFIG 指定）")
+	env := flag.String("env", "", "运行环境 development/test/production，默认取 KOTOBA_ENV / APP_ENV")
 	showVersion := flag.Bool("version", false, "打印版本信息后退出")
+	healthCheck := flag.Bool("health-check", false, "探测本机 /healthz 并以探测结果作为退出码（供容器 HEALTHCHECK 使用）")
 	flag.Parse()
 
 	if *showVersion {
@@ -40,12 +43,13 @@ func run() error {
 		return nil
 	}
 
-	path := *configPath
-	if path == "" {
-		path = os.Getenv(bootstrap.EnvConfigPath)
+	opts := bootstrap.LoadOptions{ConfigPath: *configPath, Env: *env}
+
+	if *healthCheck {
+		return runHealthCheck(opts)
 	}
 
-	application, err := bootstrap.New(path)
+	application, err := bootstrap.New(opts)
 	if err != nil {
 		return err
 	}
@@ -91,5 +95,43 @@ func run() error {
 	}
 
 	log.Info("服务已退出")
+	return nil
+}
+
+// runHealthCheck 请求本机 /healthz，成功返回 nil。
+//
+// 有了这个自检入口，镜像可以基于 distroless（无 shell、无 curl）构建，
+// 容器 HEALTHCHECK 直接执行 api -health-check 即可。
+func runHealthCheck(opts bootstrap.LoadOptions) error {
+	cfg, err := bootstrap.LoadConfig(opts)
+	if err != nil {
+		return err
+	}
+
+	_, port, err := net.SplitHostPort(cfg.App.Addr)
+	if err != nil {
+		return fmt.Errorf("解析监听地址 %q 失败: %w", cfg.App.Addr, err)
+	}
+
+	url := fmt.Sprintf("http://127.0.0.1:%s/healthz", port)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("健康检查请求失败: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("健康检查返回状态码 %d", resp.StatusCode)
+	}
+
 	return nil
 }

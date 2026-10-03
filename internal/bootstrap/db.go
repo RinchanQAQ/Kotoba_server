@@ -17,7 +17,8 @@ import (
 // NewMySQL 建立数据库连接、配置连接池并做一次连通性检查。
 func NewMySQL(cfg MySQLConfig, log *zap.Logger) (*gorm.DB, error) {
 	db, err := gorm.Open(gormmysql.Open(cfg.DSN()), &gorm.Config{
-		Logger:                 gormlogger.Default.LogMode(gormLogLevel(cfg.LogLevel)),
+		// SQL 日志经 zap 输出（与业务日志同格式、同 request_id），级别由 mysql.log_level 控制。
+		Logger:                 newGormLogger(log, cfg.LogLevel, defaultSlowQueryThreshold),
 		SkipDefaultTransaction: true,
 		PrepareStmt:            true,
 	})

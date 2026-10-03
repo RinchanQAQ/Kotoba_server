@@ -1,20 +1,26 @@
-# 应用默认配置。敏感项（数据库密码、Redis 密码）请写入 configs/config.local.yaml 覆盖，
-# 该文件已在 .gitignore 中忽略，不会提交。
+# 基础配置：所有环境共享的默认值。
+#
+# 加载顺序（后者覆盖前者）：
+#   1. config.yaml           基础配置（本文件）
+#   2. config.<env>.yaml     环境覆盖，env 取自 --env / KOTOBA_ENV / APP_ENV
+#   3. config.local.yaml     本机私密覆盖（密码等），已被 .gitignore 忽略
+#   4. 环境变量              KOTOBA_ 前缀，点号换成下划线，如 KOTOBA_MYSQL_PASSWORD
 
 app:
   name: kotoba
-  env: development # development | production
+  env: development # development | test | production
   addr: ":8080"
   read_timeout: 15 # 秒
   write_timeout: 15 # 秒
   shutdown_timeout: 10 # 秒
   cors:
+    # 留空表示回显任意来源，仅限本地开发；production 下必须显式配置，否则启动失败。
     allow_origins:
       - http://localhost:5173
       - http://127.0.0.1:5173
 
 log:
-  level: debug # debug | info | warn | error
+  level: info # debug | info | warn | error
   format: console # console | json
 
 mysql:

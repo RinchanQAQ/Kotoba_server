@@ -1,0 +1,23 @@
+# 生产环境覆盖：--env production / KOTOBA_ENV=production
+# 生产环境只输出 JSON 结构化日志，交由日志采集系统解析。
+
+app:
+  env: production
+  cors:
+    # 必须改成真实来源白名单，否则启动直接失败（校验见 bootstrap.Config.validate）。
+    # 例如：
+    #   - https://kotoba.example.com
+    allow_origins: []
+
+log:
+  level: info
+  format: json
+
+mysql:
+  max_open_conns: 200
+  max_idle_conns: 50
+  conn_max_lifetime: 1800
+  log_level: warn # 生产只记录慢查询与错误
+
+redis:
+  pool_size: 200

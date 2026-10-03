@@ -1,0 +1,106 @@
+# 本地一键起服务：MySQL + Redis + 数据库迁移 + API。
+#
+# 用法：
+#   docker compose up -d --build     # 构建并启动
+#   docker compose logs -f api       # 跟踪 API 日志
+#   docker compose down              # 停止并删除容器（保留数据卷）
+#   docker compose down -v           # 连同数据卷一起删除
+#
+# 需要改端口或密码时复制 .env.example 为 .env 再改，无需修改本文件。
+
+name: kotoba
+
+# 应用容器的公共环境变量：用 KOTOBA_ 前缀覆盖配置文件中的任意字段。
+x-app-env: &app-env
+  KOTOBA_ENV: ${APP_ENV:-development}
+  KOTOBA_MYSQL_HOST: mysql
+  KOTOBA_MYSQL_PORT: "3306"
+  KOTOBA_MYSQL_USERNAME: ${MYSQL_USERNAME:-root}
+  KOTOBA_MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-kotoba_root}
+  KOTOBA_MYSQL_DATABASE: ${MYSQL_DATABASE:-kotoba}
+  KOTOBA_REDIS_HOST: redis
+  TZ: ${TZ:-Asia/Shanghai}
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: kotoba-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 与应用容器（TZ）保持一致，避免时间字段出现时差。
+      - --default-time-zone=+08:00
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-kotoba_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-kotoba}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # 只有真正能查询时才视为就绪（首次初始化期间会短暂允许无密码本地连接）。
+      test:
+        - CMD-SHELL
+        - mysql -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" -e 'SELECT 1' >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: kotoba-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # 一次性迁移任务：MySQL 就绪后执行 up，成功退出后 API 才会启动。
+  migrate:
+    build:
+      context: .
+      target: runtime
+    image: kotoba-api:local
+    container_name: kotoba-migrate
+    entrypoint: ["/app/migrate", "up"]
+    environment: *app-env
+    # 一次性任务：不继承镜像里面向 API 的 HEALTHCHECK，否则会被标记为 unhealthy。
+    healthcheck:
+      disable: true
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: runtime
+    image: kotoba-api:local
+    container_name: kotoba-api
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      KOTOBA_APP_ADDR: ":8080"
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  mysql-data:
+  redis-data:

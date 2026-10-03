@@ -1,0 +1,20 @@
+# 开发环境覆盖：--env development / KOTOBA_ENV=development
+# 本地调试优先可读性：debug 日志 + 彩色 console 输出 + 宽松跨域。
+
+app:
+  env: development
+  cors:
+    allow_origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+      - http://localhost:3000
+
+log:
+  level: debug
+  format: console
+
+mysql:
+  log_level: info # 开发期打印 SQL，便于定位问题
+
+redis:
+  db: 0

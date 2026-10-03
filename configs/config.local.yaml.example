@@ -1,0 +1,13 @@
+# 本机私密配置示例。
+#
+# 使用方式：
+#   copy configs\config.local.yaml.example configs\config.local.yaml
+# 然后填入本机密码。config.local.yaml 已被 .gitignore 忽略，不会提交。
+#
+# 该文件最后参与合并（环境变量除外），因此只需写需要覆盖的字段。
+
+mysql:
+  password: "your-local-password"
+
+redis:
+  password: ""
